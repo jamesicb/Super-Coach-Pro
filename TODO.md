@@ -6,7 +6,7 @@ We are building an AI-powered fitness app called "Super Coach Pro".The app will 
 - Calendar
 - AI Chat to get recommendations
 
-The user should be bale to plan a workout and diet and add the workout to their calendar
+The user should be able to plan a workout and diet and add the workout to their calendar
 There should be a 'Live' mode for the workouts where they can press 'start' and begin tracking their sets.Once complete, the data will be stored for the day and they can reference it later.
 
 ## Implementation Steps /TODO

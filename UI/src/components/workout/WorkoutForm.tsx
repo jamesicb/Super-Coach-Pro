@@ -1,182 +1,221 @@
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { Plus, ArrowLeft, Save, Dumbbell } from "lucide-react"
+import { Plus, ArrowLeft, Save } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import { Card, CardContent } from "@/components/ui/card"
 import ExerciseCard from "@/components/workout/ExerciseCard"
 import ExerciseSearchModal from "@/components/workout/ExerciseSearchModal"
 import { useWorkoutStore } from "@/store/workoutStore"
 import { useToast } from "@/hooks/use-toast"
-import type { Workout } from "@/types"
-import type { ExerciseTemplate } from "@/mock/exercises"
+import type { Workout, Exercise, Set, WeightUnit } from "@/types"
+import type { ExerciseTemplate } from "@/lib/serverComm"
 
 interface WorkoutFormProps {
-  /** When provided, the form is in edit mode */
   workout?: Workout
+}
+
+let localCounter = 0
+function localId(prefix: string) {
+  return `${prefix}-local-${Date.now()}-${++localCounter}`
+}
+
+function makeDefaultSets(count = 3): Set[] {
+  return Array.from({ length: count }, () => ({
+    id: localId("s"),
+    reps: 10,
+    weight: 0,
+    completed: false,
+  }))
 }
 
 export default function WorkoutForm({ workout }: WorkoutFormProps) {
   const navigate = useNavigate()
-  const { addWorkout, updateWorkout, addExerciseToWorkout, updateExercise, removeExerciseFromWorkout, updateSet, addSet, removeSet } =
-    useWorkoutStore()
+  const {
+    addWorkout,
+    updateWorkout,
+    addExerciseToWorkout,
+    updateExercise,
+    removeExerciseFromWorkout,
+    updateSet,
+    addSet,
+    removeSet,
+  } = useWorkoutStore()
   const { toast } = useToast()
 
   const isEdit = !!workout
 
-  // Local form state — synced with the store only on Save
-  const [name, setName] = useState(workout?.name ?? "")
-  const [description, setDescription] = useState(workout?.description ?? "")
-  const [duration, setDuration] = useState(workout?.estimatedDuration ?? 60)
+  const [name, setName] = useState(workout?.name ?? "New Workout")
   const [searchOpen, setSearchOpen] = useState(false)
 
-  // For a new workout we buffer edits until Save; for edit mode we use the live store
-  const [draftId] = useState<string | null>(() => {
-    if (isEdit) return workout.id
-    return null
-  })
+  // Draft exercises buffered locally in create mode
+  const [draftExercises, setDraftExercises] = useState<Exercise[]>([])
 
-  // In edit mode, read exercises from the store (live); in create mode, track locally
-  const liveWorkout = useWorkoutStore((s) => (draftId ? s.workouts.find((w) => w.id === draftId) : null))
-  const exercises = liveWorkout?.exercises ?? []
-
+  // In edit mode, read live exercises from the store
+  const liveWorkout = useWorkoutStore((s) =>
+    isEdit ? s.workouts.find((w) => w.id === workout.id) : null,
+  )
+  const exercises = isEdit ? (liveWorkout?.exercises ?? []) : draftExercises
   const alreadyAdded = exercises.map((e) => e.name)
 
+  // ── Exercise handlers ─────────────────────────────────────────────────────
+
   function handleAddExercise(ex: ExerciseTemplate) {
-    if (!draftId) {
-      toast({ title: "Please save the workout first", description: "Fill in the name then hit Save to start adding exercises." })
-      return
+    if (isEdit) {
+      addExerciseToWorkout(workout.id, { name: ex.name, muscleGroup: ex.muscleGroup, weightUnit: "kg" })
+    } else {
+      setDraftExercises((prev) => [
+        ...prev,
+        {
+          id: localId("we"),
+          name: ex.name,
+          muscleGroup: ex.muscleGroup,
+          weightUnit: "kg",
+          sets: makeDefaultSets(),
+        },
+      ])
     }
-    addExerciseToWorkout(draftId, { name: ex.name, muscleGroup: ex.muscleGroup, weightUnit: "kg" })
   }
+
+  function draftUpdateSet(exerciseId: string, setId: string, field: "reps" | "weight", value: number) {
+    setDraftExercises((prev) =>
+      prev.map((e) =>
+        e.id !== exerciseId
+          ? e
+          : { ...e, sets: e.sets.map((s) => (s.id === setId ? { ...s, [field]: value } : s)) },
+      ),
+    )
+  }
+
+  function draftAddSet(exerciseId: string) {
+    setDraftExercises((prev) =>
+      prev.map((e) => {
+        if (e.id !== exerciseId) return e
+        const last = e.sets[e.sets.length - 1]
+        return {
+          ...e,
+          sets: [
+            ...e.sets,
+            { id: localId("s"), reps: last?.reps ?? 10, weight: last?.weight ?? 0, completed: false },
+          ],
+        }
+      }),
+    )
+  }
+
+  function draftRemoveSet(exerciseId: string, setId: string) {
+    setDraftExercises((prev) =>
+      prev.map((e) =>
+        e.id !== exerciseId ? e : { ...e, sets: e.sets.filter((s) => s.id !== setId) },
+      ),
+    )
+  }
+
+  function draftRemoveExercise(exerciseId: string) {
+    setDraftExercises((prev) => prev.filter((e) => e.id !== exerciseId))
+  }
+
+  function draftUpdateUnit(exerciseId: string, unit: WeightUnit) {
+    setDraftExercises((prev) =>
+      prev.map((e) => (e.id !== exerciseId ? e : { ...e, weightUnit: unit })),
+    )
+  }
+
+  // ── Save ──────────────────────────────────────────────────────────────────
 
   function handleSave() {
     if (!name.trim()) {
       toast({ title: "Name required", description: "Please give your workout a name.", variant: "destructive" })
       return
     }
-    if (isEdit && draftId) {
-      updateWorkout(draftId, { name: name.trim(), description: description.trim(), estimatedDuration: duration })
+    if (isEdit) {
+      updateWorkout(workout.id, { name: name.trim() })
       toast({ title: "Workout updated", description: `"${name}" has been saved.` })
-      navigate("/workout-planner")
     } else {
-      const newWorkout = addWorkout({ name: name.trim(), description: description.trim(), estimatedDuration: duration, exercises: [] })
-      toast({ title: "Workout created", description: `"${name}" is ready. Now add some exercises!` })
-      navigate(`/workout-planner/${newWorkout.id}/edit`)
+      addWorkout({ name: name.trim(), description: "", estimatedDuration: 60, exercises: draftExercises })
+      toast({ title: "Workout created", description: `"${name}" has been saved.` })
     }
+    navigate("/workout-planner")
   }
 
   return (
     <div className="p-6 max-w-2xl mx-auto space-y-6">
       {/* Header */}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-3">
         <Button variant="ghost" size="icon" onClick={() => navigate("/workout-planner")}>
           <ArrowLeft className="h-5 w-5" />
         </Button>
-        <div>
-          <h2 className="text-2xl font-bold">{isEdit ? "Edit Routine" : "Create Routine"}</h2>
-          <p className="text-sm text-muted-foreground">{isEdit ? "Update your workout details and exercises" : "Build a new workout routine"}</p>
-        </div>
+        <h2 className="text-2xl font-bold">{isEdit ? "Edit Workout" : "Create New Workout"}</h2>
       </div>
 
-      {/* Details */}
-      <Card>
-        <CardContent className="p-6 space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="name">Workout Name *</Label>
-            <Input
-              id="name"
-              placeholder="e.g. Push Day — Chest & Shoulders"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="description">Description</Label>
-            <Textarea
-              id="description"
-              placeholder="Describe this routine…"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={2}
-            />
-          </div>
-          <div className="space-y-2 max-w-[160px]">
-            <Label htmlFor="duration">Est. Duration (min)</Label>
-            <Input
-              id="duration"
-              type="number"
-              min={5}
-              max={240}
-              value={duration}
-              onChange={(e) => setDuration(Number(e.target.value))}
-            />
-          </div>
-        </CardContent>
-      </Card>
+      {/* Workout name */}
+      <Input
+        placeholder="Workout name…"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        className="text-base"
+      />
 
-      {/* Exercises section (only shown in edit mode or after first save) */}
-      {draftId && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="font-semibold">
-              Exercises{" "}
-              <span className="text-sm font-normal text-muted-foreground">({exercises.length})</span>
-            </h3>
+      {/* Exercises section */}
+      <div className="rounded-lg border border-border p-6 space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="font-semibold">Selected Exercises</h3>
+          {exercises.length > 0 && (
             <Button variant="outline" size="sm" onClick={() => setSearchOpen(true)}>
               <Plus className="h-4 w-4 mr-1.5" /> Add Exercise
             </Button>
-          </div>
-
-          {exercises.length === 0 ? (
-            <div
-              className="border-2 border-dashed border-border rounded-lg py-12 flex flex-col items-center gap-3 cursor-pointer hover:border-primary/50 hover:bg-muted/30 transition-colors"
-              onClick={() => setSearchOpen(true)}
-            >
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted">
-                <Dumbbell className="h-6 w-6 text-muted-foreground" />
-              </div>
-              <p className="font-medium text-sm">No exercises yet</p>
-              <p className="text-xs text-muted-foreground">Click to browse the exercise library</p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {exercises.map((ex) => (
-                <ExerciseCard
-                  key={ex.id}
-                  exercise={ex}
-                  onUpdateSet={(exerciseId, setId, field, value) =>
-                    updateSet(draftId, exerciseId, setId, { [field]: value })
-                  }
-                  onAddSet={(exerciseId) => addSet(draftId, exerciseId)}
-                  onRemoveSet={(exerciseId, setId) => removeSet(draftId, exerciseId, setId)}
-                  onRemoveExercise={(exerciseId) => removeExerciseFromWorkout(draftId, exerciseId)}
-                  onUpdateUnit={(exerciseId, unit) => updateExercise(draftId, exerciseId, { weightUnit: unit })}
-                />
-              ))}
-
-              {/* Add more button at bottom of list */}
-              <button
-                className="w-full border-2 border-dashed border-border rounded-lg py-4 text-sm text-muted-foreground hover:border-primary/50 hover:text-foreground transition-colors flex items-center justify-center gap-2"
-                onClick={() => setSearchOpen(true)}
-              >
-                <Plus className="h-4 w-4" /> Add another exercise
-              </button>
-            </div>
           )}
         </div>
-      )}
 
-      {/* Save button */}
+        {exercises.length === 0 ? (
+          <div className="py-8 flex justify-center">
+            <Button onClick={() => setSearchOpen(true)}>
+              <Plus className="h-4 w-4 mr-2" /> Add Your First Exercise
+            </Button>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {exercises.map((ex) => (
+              <ExerciseCard
+                key={ex.id}
+                exercise={ex}
+                onUpdateSet={
+                  isEdit
+                    ? (eid, sid, field, val) => updateSet(workout.id, eid, sid, { [field]: val })
+                    : draftUpdateSet
+                }
+                onAddSet={isEdit ? (eid) => addSet(workout.id, eid) : draftAddSet}
+                onRemoveSet={
+                  isEdit ? (eid, sid) => removeSet(workout.id, eid, sid) : draftRemoveSet
+                }
+                onRemoveExercise={
+                  isEdit ? (eid) => removeExerciseFromWorkout(workout.id, eid) : draftRemoveExercise
+                }
+                onUpdateUnit={
+                  isEdit
+                    ? (eid, unit) => updateExercise(workout.id, eid, { weightUnit: unit })
+                    : draftUpdateUnit
+                }
+              />
+            ))}
+
+            <button
+              className="w-full border-2 border-dashed border-border rounded-lg py-4 text-sm text-muted-foreground hover:border-primary/50 hover:text-foreground transition-colors flex items-center justify-center gap-2"
+              onClick={() => setSearchOpen(true)}
+            >
+              <Plus className="h-4 w-4" /> Add another exercise
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Actions */}
       <div className="flex gap-3 justify-end">
         <Button variant="outline" onClick={() => navigate("/workout-planner")}>
           Cancel
         </Button>
         <Button onClick={handleSave}>
           <Save className="h-4 w-4 mr-2" />
-          {isEdit ? "Save Changes" : "Create Workout"}
+          {isEdit ? "Save Changes" : "Save Workout"}
         </Button>
       </div>
 

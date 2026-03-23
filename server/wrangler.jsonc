@@ -1,0 +1,11 @@
+{
+	"name": "super-coach-pro-server",
+	"main": "src/index.ts",
+	"compatibility_date": "2025-03-23",
+	"dev": {
+		"port": 8788
+	},
+	"observability": {
+		"enabled": true,
+	},
+}

@@ -2,9 +2,13 @@
   "name": "super-coach-pro",
   "private": true,
   "scripts": {
-    "dev":     "npm run dev     --prefix UI",
-    "build":   "npm run build   --prefix UI",
-    "preview": "npm run preview --prefix UI",
-    "lint":    "npm run lint    --prefix UI"
+    "dev": "npm run dev     --prefix UI",
+    "build": "npm run build   --prefix UI",
+    "preview": "cd server && npm run dev",
+    "lint": "npm run lint    --prefix UI",
+    "deploy": "cd server && npm run deploy"
+  },
+  "devDependencies": {
+    "wrangler": "^4.76.0"
   }
 }

@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { Link, useNavigate } from "react-router-dom"
-import { Plus, Dumbbell, Clock, Pencil, Trash2, Zap, MoreVertical, Search } from "lucide-react"
+import { Plus, Clock, Pencil, Trash2, Zap, MoreVertical, Search, Dumbbell } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardFooter } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -171,15 +171,10 @@ export default function WorkoutPlannerPage() {
     <div className="p-6 space-y-6 max-w-6xl mx-auto">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-bold">Workout Planner</h2>
-          <p className="text-sm text-muted-foreground mt-1">
-            {workouts.length} routine{workouts.length !== 1 ? "s" : ""} saved
-          </p>
-        </div>
+        <h2 className="text-2xl font-bold">My Workouts</h2>
         <Button asChild>
           <Link to="/workout-planner/create">
-            <Plus className="h-4 w-4 mr-2" /> New Routine
+            <Plus className="h-4 w-4 mr-2" /> Create Workout
           </Link>
         </Button>
       </div>
@@ -198,9 +193,6 @@ export default function WorkoutPlannerPage() {
       {/* Grid */}
       {filtered.length === 0 ? (
         <div className="text-center py-20 space-y-4">
-          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted mx-auto">
-            <Dumbbell className="h-8 w-8 text-muted-foreground" />
-          </div>
           {search ? (
             <>
               <p className="font-medium">No routines match "{search}"</p>
@@ -208,12 +200,9 @@ export default function WorkoutPlannerPage() {
             </>
           ) : (
             <>
-              <p className="font-medium">No workout routines yet</p>
-              <p className="text-sm text-muted-foreground">Create your first routine to get started</p>
+              <p className="text-sm text-muted-foreground">You haven't created any workouts yet.</p>
               <Button asChild>
-                <Link to="/workout-planner/create">
-                  <Plus className="h-4 w-4 mr-2" /> Create Your First Routine
-                </Link>
+                <Link to="/workout-planner/create">Create Your First Workout</Link>
               </Button>
             </>
           )}
