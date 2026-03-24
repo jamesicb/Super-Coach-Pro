@@ -2,13 +2,15 @@
   "name": "super-coach-pro",
   "private": true,
   "scripts": {
-    "dev": "npm run dev     --prefix UI",
-    "build": "npm run build   --prefix UI",
-    "preview": "cd server && npm run dev",
-    "lint": "npm run lint    --prefix UI",
+    "dev": "npm run dev --prefix UI",
+    "dev:server": "npm run dev --prefix server",
+    "dev:all": "concurrently -n UI,Server -c cyan,magenta \"npm run dev\" \"npm run dev:server\"",
+    "build": "npm run build --prefix UI",
+    "lint": "npm run lint --prefix UI",
     "deploy": "cd server && npm run deploy"
   },
   "devDependencies": {
+    "concurrently": "^9.2.1",
     "wrangler": "^4.76.0"
   }
 }

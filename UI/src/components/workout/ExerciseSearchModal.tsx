@@ -15,18 +15,18 @@ interface ExerciseSearchModalProps {
 }
 
 const muscleGroupColors: Record<string, string> = {
-  Chest:      "bg-blue-100 text-blue-700",
-  Back:       "bg-emerald-100 text-emerald-700",
-  Legs:       "bg-orange-100 text-orange-700",
-  Shoulders:  "bg-purple-100 text-purple-700",
-  Arms:       "bg-pink-100 text-pink-700",
-  Core:       "bg-yellow-100 text-yellow-700",
+  Chest:      "bg-blue-500/15 text-blue-400 border border-blue-500/25",
+  Back:       "bg-emerald-500/15 text-emerald-400 border border-emerald-500/25",
+  Legs:       "bg-orange-500/15 text-orange-400 border border-orange-500/25",
+  Shoulders:  "bg-purple-500/15 text-purple-400 border border-purple-500/25",
+  Arms:       "bg-pink-500/15 text-pink-400 border border-pink-500/25",
+  Core:       "bg-yellow-500/15 text-yellow-400 border border-yellow-500/25",
 }
 
 const categoryColors: Record<string, string> = {
-  Strength:    "bg-slate-100 text-slate-700",
-  Cardio:      "bg-red-100 text-red-700",
-  Flexibility: "bg-teal-100 text-teal-700",
+  Strength:    "bg-primary/15 text-primary border border-primary/25",
+  Cardio:      "bg-red-500/15 text-red-400 border border-red-500/25",
+  Flexibility: "bg-teal-500/15 text-teal-400 border border-teal-500/25",
 }
 
 export default function ExerciseSearchModal({ open, onClose, onSelect, alreadyAdded = [] }: ExerciseSearchModalProps) {
@@ -123,25 +123,20 @@ export default function ExerciseSearchModal({ open, onClose, onSelect, alreadyAd
         </div>
 
         {/* Column headers */}
-        <div className="px-6 pt-3 pb-1 grid grid-cols-[1fr_100px_110px_100px_auto] gap-2 text-xs font-medium text-muted-foreground border-b border-border">
-          <span>Exercise</span>
-          <span>Category</span>
-          <span>Muscle Group</span>
-          <span>Equipment</span>
+        <div className="px-6 pt-3 pb-2 grid grid-cols-[1fr_100px_110px_100px_auto] gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground bg-muted/30 border-b border-border">
+          <span className="py-1">Exercise</span>
+          <span className="py-1">Category</span>
+          <span className="py-1">Muscle Group</span>
+          <span className="py-1">Equipment</span>
           <span />
         </div>
 
         {/* Results */}
         <ScrollArea className="flex-1 min-h-0">
-          <div className="px-6 py-3 space-y-1">
+          <div className="px-4 py-2 space-y-0.5">
             {loading ? (
               <div className="text-center py-10 text-muted-foreground">
                 <p className="text-sm">Loading exercises…</p>
-              </div>
-            ) : error ? (
-              <div className="text-center py-10 text-destructive">
-                <p className="text-sm font-medium">Could not load exercises</p>
-                <p className="text-xs mt-1">{error}</p>
               </div>
             ) : filtered.length === 0 ? (
               <div className="text-center py-10 text-muted-foreground">
@@ -151,26 +146,26 @@ export default function ExerciseSearchModal({ open, onClose, onSelect, alreadyAd
             ) : (
               filtered.map((ex) => {
                 const isAdded = alreadyAdded.includes(ex.name)
-                const mgColor = muscleGroupColors[ex.muscleGroup] ?? "bg-gray-100 text-gray-700"
-                const catColor = categoryColors[ex.category] ?? "bg-gray-100 text-gray-700"
+                const mgColor = muscleGroupColors[ex.muscleGroup] ?? "bg-muted text-muted-foreground border border-border"
+                const catColor = categoryColors[ex.category] ?? "bg-muted text-muted-foreground border border-border"
                 return (
                   <div
                     key={ex.id}
-                    className="grid grid-cols-[1fr_100px_110px_100px_auto] gap-2 items-center py-3 px-2 rounded-lg hover:bg-muted/50 transition-colors border border-transparent hover:border-border"
+                    className="grid grid-cols-[1fr_100px_110px_100px_auto] gap-2 items-center py-2.5 px-3 rounded-lg hover:bg-muted/50 transition-colors group"
                   >
                     {/* Exercise name + description */}
                     <div className="min-w-0">
-                      <p className="text-sm font-semibold leading-tight">{ex.name}</p>
+                      <p className="text-sm font-semibold leading-tight text-foreground">{ex.name}</p>
                       <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{ex.description}</p>
                     </div>
 
                     {/* Category */}
-                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium w-fit ${catColor}`}>
+                    <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium w-fit ${catColor}`}>
                       {ex.category}
                     </span>
 
                     {/* Muscle group */}
-                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium w-fit ${mgColor}`}>
+                    <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium w-fit ${mgColor}`}>
                       {ex.muscleGroup}
                     </span>
 
@@ -181,7 +176,7 @@ export default function ExerciseSearchModal({ open, onClose, onSelect, alreadyAd
                     <Button
                       size="sm"
                       variant={isAdded ? "secondary" : "default"}
-                      className="h-8 shrink-0"
+                      className="h-7 shrink-0 text-xs"
                       onClick={() => !isAdded && handleSelect(ex)}
                       disabled={isAdded}
                     >

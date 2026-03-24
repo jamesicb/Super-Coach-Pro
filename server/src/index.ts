@@ -1,3 +1,5 @@
+// ─── Exercise library (static, no DB needed) ────────────────────────────────
+
 export interface ExerciseTemplate {
   id: string
   name: string
@@ -58,39 +60,174 @@ const EXERCISE_LIBRARY: ExerciseTemplate[] = [
   { id: "ex-035", name: "Stationary Bike",    category: "Cardio",   muscleGroup: "Legs",      equipment: "Machine",    description: "Low-impact cycling for cardiovascular fitness." },
 
   // Flexibility
-  { id: "ex-036", name: "Hip Flexor Stretch", category: "Flexibility", muscleGroup: "Legs",   equipment: "Bodyweight", description: "Deep lunge stretch targeting the hip flexors." },
+  { id: "ex-036", name: "Hip Flexor Stretch", category: "Flexibility", muscleGroup: "Legs",      equipment: "Bodyweight", description: "Deep lunge stretch targeting the hip flexors." },
   { id: "ex-037", name: "Shoulder Stretch",   category: "Flexibility", muscleGroup: "Shoulders", equipment: "Bodyweight", description: "Cross-body stretch for shoulder mobility." },
-  { id: "ex-038", name: "Hamstring Stretch",  category: "Flexibility", muscleGroup: "Legs",   equipment: "Bodyweight", description: "Seated or standing stretch for hamstring flexibility." },
+  { id: "ex-038", name: "Hamstring Stretch",  category: "Flexibility", muscleGroup: "Legs",      equipment: "Bodyweight", description: "Seated or standing stretch for hamstring flexibility." },
 ]
+
+// ─── Supabase types ──────────────────────────────────────────────────────────
+
+interface WorkoutRow {
+  id: string
+  name: string
+  description: string | null
+  exercises: unknown[]
+  estimated_duration: number
+  created_at: string
+  updated_at: string
+}
+
+interface WorkoutShape {
+  id: string
+  name: string
+  description?: string
+  exercises: unknown[]
+  estimatedDuration: number
+  createdAt: string
+  updatedAt: string
+}
+
+function rowToWorkout(row: WorkoutRow): WorkoutShape {
+  return {
+    id: row.id,
+    name: row.name,
+    description: row.description ?? undefined,
+    exercises: row.exercises,
+    estimatedDuration: row.estimated_duration,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  }
+}
+
+function workoutToRow(w: WorkoutShape): Omit<WorkoutRow, "created_at"> & { created_at?: string } {
+  return {
+    id: w.id,
+    name: w.name,
+    description: w.description ?? null,
+    exercises: w.exercises,
+    estimated_duration: w.estimatedDuration,
+    created_at: w.createdAt,
+    updated_at: new Date().toISOString(),
+  }
+}
+
+// ─── Supabase REST helpers ───────────────────────────────────────────────────
+
+function sbHeaders(env: Env, extra: Record<string, string> = {}): HeadersInit {
+  return {
+    apikey: env.SUPABASE_ANON_KEY,
+    Authorization: `Bearer ${env.SUPABASE_ANON_KEY}`,
+    "Content-Type": "application/json",
+    ...extra,
+  }
+}
+
+async function sbFetch(url: string, init: RequestInit): Promise<Response> {
+  const res = await fetch(url, init)
+  if (!res.ok) {
+    const text = await res.text()
+    throw new Error(`Supabase error ${res.status}: ${text}`)
+  }
+  return res
+}
+
+// ─── CORS ────────────────────────────────────────────────────────────────────
 
 function corsHeaders(origin: string | null): HeadersInit {
   return {
     "Access-Control-Allow-Origin": origin ?? "*",
-    "Access-Control-Allow-Methods": "GET, OPTIONS",
+    "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type",
   }
 }
 
+// ─── Worker ──────────────────────────────────────────────────────────────────
+
 export default {
-  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+  async fetch(request: Request, env: Env, _ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url)
     const origin = request.headers.get("Origin")
+    const cors = corsHeaders(origin)
 
     if (request.method === "OPTIONS") {
-      return new Response(null, { status: 204, headers: corsHeaders(origin) })
+      return new Response(null, { status: 204, headers: cors })
     }
 
+    // ── /health ──────────────────────────────────────────────────────────────
     if (url.pathname === "/health") {
-      return Response.json(
-        { status: "ok", app: "Super Coach Pro" },
-        { headers: corsHeaders(origin) },
-      )
+      return Response.json({ status: "ok", app: "Super Coach Pro" }, { headers: cors })
     }
 
-    if (url.pathname === "/exercises") {
-      return Response.json(EXERCISE_LIBRARY, { headers: corsHeaders(origin) })
+    // ── /exercises ───────────────────────────────────────────────────────────
+    if (url.pathname === "/exercises" && request.method === "GET") {
+      return Response.json(EXERCISE_LIBRARY, { headers: cors })
     }
 
-    return Response.json({ message: "Not found" }, { status: 404, headers: corsHeaders(origin) })
+    // ── /workouts ─────────────────────────────────────────────────────────────
+    const base = `${env.SUPABASE_URL}/rest/v1/workouts`
+    const sbH = sbHeaders.bind(null, env)
+
+    // GET /workouts
+    if (url.pathname === "/workouts" && request.method === "GET") {
+      const res = await sbFetch(`${base}?select=*&order=created_at.desc`, {
+        headers: sbH(),
+      })
+      const rows: WorkoutRow[] = await res.json()
+      return Response.json(rows.map(rowToWorkout), { headers: cors })
+    }
+
+    // POST /workouts
+    if (url.pathname === "/workouts" && request.method === "POST") {
+      const body = await request.json() as WorkoutShape
+      const row = workoutToRow(body)
+      const res = await sbFetch(base, {
+        method: "POST",
+        headers: sbH({ Prefer: "return=representation" }),
+        body: JSON.stringify(row),
+      })
+      const rows: WorkoutRow[] = await res.json()
+      return Response.json(rowToWorkout(rows[0]), { status: 201, headers: cors })
+    }
+
+    // Routes with /:id
+    const idMatch = url.pathname.match(/^\/workouts\/([^/]+)$/)
+    if (idMatch) {
+      const id = idMatch[1]
+      const byId = `${base}?id=eq.${encodeURIComponent(id)}`
+
+      // GET /workouts/:id
+      if (request.method === "GET") {
+        const res = await sbFetch(`${byId}&select=*`, { headers: sbH() })
+        const rows: WorkoutRow[] = await res.json()
+        if (rows.length === 0) {
+          return Response.json({ message: "Not found" }, { status: 404, headers: cors })
+        }
+        return Response.json(rowToWorkout(rows[0]), { headers: cors })
+      }
+
+      // PUT /workouts/:id
+      if (request.method === "PUT") {
+        const body = await request.json() as WorkoutShape
+        const row = workoutToRow(body)
+        const res = await sbFetch(byId, {
+          method: "PATCH",
+          headers: sbH({ Prefer: "return=representation" }),
+          body: JSON.stringify(row),
+        })
+        const rows: WorkoutRow[] = await res.json()
+        if (rows.length === 0) {
+          return Response.json({ message: "Not found" }, { status: 404, headers: cors })
+        }
+        return Response.json(rowToWorkout(rows[0]), { headers: cors })
+      }
+
+      // DELETE /workouts/:id
+      if (request.method === "DELETE") {
+        await sbFetch(byId, { method: "DELETE", headers: sbH() })
+        return new Response(null, { status: 204, headers: cors })
+      }
+    }
+
+    return Response.json({ message: "Not found" }, { status: 404, headers: cors })
   },
 } satisfies ExportedHandler<Env>
