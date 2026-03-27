@@ -1,4 +1,4 @@
-import { useEffect } from "react"
+import { useEffect, lazy, Suspense } from "react"
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom"
 import AppLayout from "@/components/AppLayout"
 import ProtectedRoute from "@/components/ProtectedRoute"
@@ -7,20 +7,20 @@ import { useAuthStore } from "@/store/authStore"
 import { useWorkoutStore } from "@/store/workoutStore"
 import { useDietStore } from "@/store/dietStore"
 
-import DashboardPage from "@/pages/DashboardPage"
-import WorkoutPlannerPage from "@/pages/WorkoutPlannerPage"
-import CreateWorkoutPage from "@/pages/CreateWorkoutPage"
-import EditWorkoutPage from "@/pages/EditWorkoutPage"
-import DietPlannerPage from "@/pages/DietPlannerPage"
-import CreateDietPage from "@/pages/CreateDietPage"
-import EditDietPage from "@/pages/EditDietPage"
-import CalendarPage from "@/pages/CalendarPage"
-import LiveWorkoutPage from "@/pages/LiveWorkoutPage"
-import ProgressPage from "@/pages/ProgressPage"
-import AIChatPage from "@/pages/AIChatPage"
-import LoginPage from "@/pages/LoginPage"
-import RegisterPage from "@/pages/RegisterPage"
-import NotFoundPage from "@/pages/NotFoundPage"
+const DashboardPage = lazy(() => import("@/pages/DashboardPage"))
+const WorkoutPlannerPage = lazy(() => import("@/pages/WorkoutPlannerPage"))
+const CreateWorkoutPage = lazy(() => import("@/pages/CreateWorkoutPage"))
+const EditWorkoutPage = lazy(() => import("@/pages/EditWorkoutPage"))
+const DietPlannerPage = lazy(() => import("@/pages/DietPlannerPage"))
+const CreateDietPage = lazy(() => import("@/pages/CreateDietPage"))
+const EditDietPage = lazy(() => import("@/pages/EditDietPage"))
+const CalendarPage = lazy(() => import("@/pages/CalendarPage"))
+const LiveWorkoutPage = lazy(() => import("@/pages/LiveWorkoutPage"))
+const ProgressPage = lazy(() => import("@/pages/ProgressPage"))
+const AIChatPage = lazy(() => import("@/pages/AIChatPage"))
+const LoginPage = lazy(() => import("@/pages/LoginPage"))
+const RegisterPage = lazy(() => import("@/pages/RegisterPage"))
+const NotFoundPage = lazy(() => import("@/pages/NotFoundPage"))
 
 export default function App() {
   const { initialize, user } = useAuthStore()
@@ -40,6 +40,7 @@ export default function App() {
 
   return (
     <BrowserRouter>
+      <Suspense fallback={null}>
       <Routes>
         {/* Auth routes */}
         <Route path="/login" element={<LoginPage />} />
@@ -69,6 +70,7 @@ export default function App() {
 
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
+      </Suspense>
       <Toaster />
     </BrowserRouter>
   )

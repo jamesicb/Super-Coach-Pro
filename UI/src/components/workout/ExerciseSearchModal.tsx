@@ -138,6 +138,10 @@ export default function ExerciseSearchModal({ open, onClose, onSelect, alreadyAd
               <div className="text-center py-10 text-muted-foreground">
                 <p className="text-sm">Loading exercises…</p>
               </div>
+            ) : error ? (
+              <div className="text-center py-10 text-destructive">
+                <p className="text-sm">{error}</p>
+              </div>
             ) : filtered.length === 0 ? (
               <div className="text-center py-10 text-muted-foreground">
                 <p className="text-sm">No exercises found</p>
