@@ -122,19 +122,32 @@ export default function WorkoutForm({ workout }: WorkoutFormProps) {
 
   // ── Save ──────────────────────────────────────────────────────────────────
 
-  function handleSave() {
+  const [saving, setSaving] = useState(false)
+
+  async function handleSave() {
     if (!name.trim()) {
       toast({ title: "Name required", description: "Please give your workout a name.", variant: "destructive" })
       return
     }
-    if (isEdit) {
-      updateWorkout(workout.id, { name: name.trim() })
-      toast({ title: "Workout updated", description: `"${name}" has been saved.` })
-    } else {
-      addWorkout({ name: name.trim(), description: "", estimatedDuration: 60, exercises: draftExercises })
-      toast({ title: "Workout created", description: `"${name}" has been saved.` })
+    setSaving(true)
+    try {
+      if (isEdit) {
+        await updateWorkout(workout.id, { name: name.trim(), exercises: liveWorkout?.exercises ?? workout.exercises })
+        toast({ title: "Workout updated", description: `"${name}" has been saved.` })
+      } else {
+        await addWorkout({ name: name.trim(), description: "", estimatedDuration: 60, exercises: draftExercises })
+        toast({ title: "Workout created", description: `"${name}" has been saved.` })
+      }
+      navigate("/workout-planner")
+    } catch {
+      toast({
+        title: "Save failed",
+        description: "Could not save to the server. Check your connection and try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setSaving(false)
     }
-    navigate("/workout-planner")
   }
 
   return (
@@ -213,9 +226,9 @@ export default function WorkoutForm({ workout }: WorkoutFormProps) {
         <Button variant="outline" onClick={() => navigate("/workout-planner")}>
           Cancel
         </Button>
-        <Button onClick={handleSave}>
+        <Button onClick={handleSave} disabled={saving}>
           <Save className="h-4 w-4 mr-2" />
-          {isEdit ? "Save Changes" : "Save Workout"}
+          {saving ? "Saving…" : isEdit ? "Save Changes" : "Save Workout"}
         </Button>
       </div>
 

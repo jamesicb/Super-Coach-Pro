@@ -1,4 +1,4 @@
-import { useLocation } from "react-router-dom"
+import { useLocation, useNavigate } from "react-router-dom"
 import { Bell, Menu } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
@@ -10,6 +10,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { useAuthStore } from "@/store/authStore"
 
 const PAGE_TITLES: Record<string, string> = {
   "/dashboard":       "Dashboard",
@@ -28,9 +29,23 @@ function getPageTitle(pathname: string): string {
   return "Super Coach Pro"
 }
 
+function getInitials(email: string): string {
+  return email.slice(0, 2).toUpperCase()
+}
+
 export default function Header() {
   const location = useLocation()
+  const navigate = useNavigate()
   const title = getPageTitle(location.pathname)
+  const { user, signOut } = useAuthStore()
+
+  async function handleSignOut() {
+    await signOut()
+    navigate("/login")
+  }
+
+  const email = user?.email ?? ""
+  const initials = getInitials(email)
 
   return (
     <header className="flex h-16 items-center justify-between px-6 border-b border-border bg-background shrink-0">
@@ -55,22 +70,24 @@ export default function Header() {
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="relative h-9 w-9 rounded-full p-0">
               <Avatar className="h-9 w-9">
-                <AvatarFallback className="bg-primary text-primary-foreground font-bold">JD</AvatarFallback>
+                <AvatarFallback className="bg-primary text-primary-foreground font-bold">{initials}</AvatarFallback>
               </Avatar>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent className="w-56" align="end">
             <DropdownMenuLabel>
               <div className="flex flex-col space-y-1">
-                <p className="text-sm font-medium">James Doe</p>
-                <p className="text-xs text-muted-foreground">james@example.com</p>
+                <p className="text-xs text-muted-foreground truncate">{email}</p>
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem>Profile Settings</DropdownMenuItem>
             <DropdownMenuItem>Body Stats</DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="text-destructive focus:text-destructive">
+            <DropdownMenuItem
+              className="text-destructive focus:text-destructive cursor-pointer"
+              onClick={handleSignOut}
+            >
               Sign Out
             </DropdownMenuItem>
           </DropdownMenuContent>

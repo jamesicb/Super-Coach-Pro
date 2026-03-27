@@ -93,6 +93,7 @@ export interface MealPlan {
   targetCarbs: number
   targetFat: number
   createdAt: string
+  updatedAt: string
 }
 
 // ─── Calendar ────────────────────────────────────────────────────────────────

@@ -1,6 +1,11 @@
 import { create } from "zustand"
 import type { Workout, Exercise, Set } from "@/types"
-import { MOCK_WORKOUTS } from "@/mock/workouts"
+import {
+  getWorkouts as serverGetWorkouts,
+  createWorkout as serverCreateWorkout,
+  updateWorkout as serverUpdateWorkout,
+  deleteWorkout as serverDeleteWorkout,
+} from "@/lib/serverComm"
 
 let idCounter = 1000
 
@@ -19,9 +24,12 @@ function makeDefaultSets(count: number = 3): Set[] {
 
 interface WorkoutState {
   workouts: Workout[]
+  syncing: boolean
 
-  addWorkout: (workout: Omit<Workout, "id" | "createdAt" | "updatedAt">) => Workout
-  updateWorkout: (id: string, changes: Partial<Omit<Workout, "id" | "createdAt">>) => void
+  loadWorkouts: () => Promise<void>
+
+  addWorkout: (workout: Omit<Workout, "id" | "createdAt" | "updatedAt">) => Promise<Workout>
+  updateWorkout: (id: string, changes: Partial<Omit<Workout, "id" | "createdAt">>) => Promise<void>
   deleteWorkout: (id: string) => void
 
   addExerciseToWorkout: (workoutId: string, exercise: Omit<Exercise, "id" | "sets">) => void
@@ -35,29 +43,61 @@ interface WorkoutState {
 }
 
 export const useWorkoutStore = create<WorkoutState>((set, get) => ({
-  workouts: MOCK_WORKOUTS,
+  workouts: [],
+  syncing: false,
 
-  addWorkout: (data) => {
+  loadWorkouts: async () => {
+    set({ syncing: true })
+    try {
+      const workouts = await serverGetWorkouts()
+      set({ workouts })
+    } catch (e) {
+      console.error("Failed to load workouts:", e)
+    } finally {
+      set({ syncing: false })
+    }
+  },
+
+  addWorkout: async (data) => {
     const workout: Workout = {
       ...data,
-      id: genId("w"),
+      id: crypto.randomUUID(),
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     }
     set((state) => ({ workouts: [...state.workouts, workout] }))
+    try {
+      await serverCreateWorkout(workout)
+    } catch (e) {
+      // Revert optimistic update if server save failed
+      set((state) => ({ workouts: state.workouts.filter((w) => w.id !== workout.id) }))
+      throw e
+    }
     return workout
   },
 
-  updateWorkout: (id, changes) => {
+  updateWorkout: async (id, changes) => {
+    const existing = get().workouts.find((w) => w.id === id)
+    if (!existing) return
+    const updated: Workout = { ...existing, ...changes, updatedAt: new Date().toISOString() }
+    const previous = existing
     set((state) => ({
-      workouts: state.workouts.map((w) =>
-        w.id === id ? { ...w, ...changes, updatedAt: new Date().toISOString() } : w,
-      ),
+      workouts: state.workouts.map((w) => (w.id === id ? updated : w)),
     }))
+    try {
+      await serverUpdateWorkout(id, updated)
+    } catch (e) {
+      // Revert optimistic update if server save failed
+      set((state) => ({
+        workouts: state.workouts.map((w) => (w.id === id ? previous : w)),
+      }))
+      throw e
+    }
   },
 
   deleteWorkout: (id) => {
     set((state) => ({ workouts: state.workouts.filter((w) => w.id !== id) }))
+    serverDeleteWorkout(id).catch((e) => console.error("Failed to delete workout:", e))
   },
 
   addExerciseToWorkout: (workoutId, exerciseData) => {

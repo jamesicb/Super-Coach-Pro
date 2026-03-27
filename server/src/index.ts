@@ -111,12 +111,70 @@ function workoutToRow(w: WorkoutShape): Omit<WorkoutRow, "created_at"> & { creat
   }
 }
 
+// ─── Meal Plan types ──────────────────────────────────────────────────────────
+
+interface MealPlanRow {
+  id: string
+  name: string
+  description: string | null
+  meals: unknown[]
+  target_calories: number
+  target_protein: number
+  target_carbs: number
+  target_fat: number
+  created_at: string
+  updated_at: string
+}
+
+interface MealPlanShape {
+  id: string
+  name: string
+  description?: string
+  meals: unknown[]
+  targetCalories: number
+  targetProtein: number
+  targetCarbs: number
+  targetFat: number
+  createdAt: string
+  updatedAt: string
+}
+
+function rowToMealPlan(row: MealPlanRow): MealPlanShape {
+  return {
+    id: row.id,
+    name: row.name,
+    description: row.description ?? undefined,
+    meals: row.meals,
+    targetCalories: row.target_calories,
+    targetProtein: row.target_protein,
+    targetCarbs: row.target_carbs,
+    targetFat: row.target_fat,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  }
+}
+
+function mealPlanToRow(m: MealPlanShape): Omit<MealPlanRow, "created_at"> & { created_at?: string } {
+  return {
+    id: m.id,
+    name: m.name,
+    description: m.description ?? null,
+    meals: m.meals,
+    target_calories: m.targetCalories,
+    target_protein: m.targetProtein,
+    target_carbs: m.targetCarbs,
+    target_fat: m.targetFat,
+    created_at: m.createdAt,
+    updated_at: new Date().toISOString(),
+  }
+}
+
 // ─── Supabase REST helpers ───────────────────────────────────────────────────
 
-function sbHeaders(env: Env, extra: Record<string, string> = {}): HeadersInit {
+function sbHeaders(env: Env, userToken?: string | null, extra: Record<string, string> = {}): HeadersInit {
   return {
     apikey: env.SUPABASE_ANON_KEY,
-    Authorization: `Bearer ${env.SUPABASE_ANON_KEY}`,
+    Authorization: `Bearer ${userToken ?? env.SUPABASE_ANON_KEY}`,
     "Content-Type": "application/json",
     ...extra,
   }
@@ -137,7 +195,7 @@ function corsHeaders(origin: string | null): HeadersInit {
   return {
     "Access-Control-Allow-Origin": origin ?? "*",
     "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization",
   }
 }
 
@@ -153,6 +211,10 @@ export default {
       return new Response(null, { status: 204, headers: cors })
     }
 
+    // Extract the user's JWT from the incoming request (forwarded from the UI)
+    const authHeader = request.headers.get("Authorization")
+    const userToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null
+
     // ── /health ──────────────────────────────────────────────────────────────
     if (url.pathname === "/health") {
       return Response.json({ status: "ok", app: "Super Coach Pro" }, { headers: cors })
@@ -163,9 +225,14 @@ export default {
       return Response.json(EXERCISE_LIBRARY, { headers: cors })
     }
 
+    // Require authentication for all workout endpoints
+    if (!userToken) {
+      return Response.json({ message: "Unauthorized" }, { status: 401, headers: cors })
+    }
+
     // ── /workouts ─────────────────────────────────────────────────────────────
     const base = `${env.SUPABASE_URL}/rest/v1/workouts`
-    const sbH = sbHeaders.bind(null, env)
+    const sbH = (extra: Record<string, string> = {}) => sbHeaders(env, userToken, extra)
 
     // GET /workouts
     if (url.pathname === "/workouts" && request.method === "GET") {
@@ -226,6 +293,106 @@ export default {
         await sbFetch(byId, { method: "DELETE", headers: sbH() })
         return new Response(null, { status: 204, headers: cors })
       }
+    }
+
+    // ── /meal-plans ───────────────────────────────────────────────────────────
+    const mealBase = `${env.SUPABASE_URL}/rest/v1/meal_plans`
+
+    // GET /meal-plans
+    if (url.pathname === "/meal-plans" && request.method === "GET") {
+      const res = await sbFetch(`${mealBase}?select=*&order=created_at.desc`, { headers: sbH() })
+      const rows: MealPlanRow[] = await res.json()
+      return Response.json(rows.map(rowToMealPlan), { headers: cors })
+    }
+
+    // POST /meal-plans
+    if (url.pathname === "/meal-plans" && request.method === "POST") {
+      const body = await request.json() as MealPlanShape
+      const row = mealPlanToRow(body)
+      const res = await sbFetch(mealBase, {
+        method: "POST",
+        headers: sbH({ Prefer: "return=representation" }),
+        body: JSON.stringify(row),
+      })
+      const rows: MealPlanRow[] = await res.json()
+      return Response.json(rowToMealPlan(rows[0]), { status: 201, headers: cors })
+    }
+
+    // Routes with /meal-plans/:id
+    const mealIdMatch = url.pathname.match(/^\/meal-plans\/([^/]+)$/)
+    if (mealIdMatch) {
+      const id = mealIdMatch[1]
+      const byId = `${mealBase}?id=eq.${encodeURIComponent(id)}`
+
+      if (request.method === "GET") {
+        const res = await sbFetch(`${byId}&select=*`, { headers: sbH() })
+        const rows: MealPlanRow[] = await res.json()
+        if (rows.length === 0) return Response.json({ message: "Not found" }, { status: 404, headers: cors })
+        return Response.json(rowToMealPlan(rows[0]), { headers: cors })
+      }
+
+      if (request.method === "PUT") {
+        const body = await request.json() as MealPlanShape
+        const row = mealPlanToRow(body)
+        const res = await sbFetch(byId, {
+          method: "PATCH",
+          headers: sbH({ Prefer: "return=representation" }),
+          body: JSON.stringify(row),
+        })
+        const rows: MealPlanRow[] = await res.json()
+        if (rows.length === 0) return Response.json({ message: "Not found" }, { status: 404, headers: cors })
+        return Response.json(rowToMealPlan(rows[0]), { headers: cors })
+      }
+
+      if (request.method === "DELETE") {
+        await sbFetch(byId, { method: "DELETE", headers: sbH() })
+        return new Response(null, { status: 204, headers: cors })
+      }
+    }
+
+    // ── /chat ─────────────────────────────────────────────────────────────────
+    if (url.pathname === "/chat" && request.method === "POST") {
+      if (!env.OPENAI_API_KEY) {
+        return Response.json({ message: "OpenAI API key not configured" }, { status: 503, headers: cors })
+      }
+
+      const body = await request.json() as { messages: { role: string; content: string }[] }
+      const { messages } = body
+
+      if (!Array.isArray(messages) || messages.length === 0) {
+        return Response.json({ message: "messages array is required" }, { status: 400, headers: cors })
+      }
+
+      const openAiRes = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${env.OPENAI_API_KEY}`,
+        },
+        body: JSON.stringify({
+          model: "gpt-4o",
+          messages: [
+            {
+              role: "system",
+              content: `You are Super Coach Pro, an expert AI fitness and nutrition coach.
+You help users build personalised workout plans and diet plans through friendly, motivating conversation.
+Keep responses concise but thorough. Use markdown formatting (bold, bullet lists, tables) where it aids clarity.
+When generating a workout plan or diet plan, structure it clearly so the user can follow it immediately.
+Always be encouraging and science-based in your advice.`,
+            },
+            ...messages.map((m) => ({ role: m.role, content: m.content })),
+          ],
+        }),
+      })
+
+      if (!openAiRes.ok) {
+        const errText = await openAiRes.text()
+        console.error(`[chat] OpenAI ${openAiRes.status}:`, errText)
+        return Response.json({ message: `OpenAI error: ${errText}` }, { status: 502, headers: cors })
+      }
+
+      const data = await openAiRes.json() as { choices: Array<{ message: { content: string } }> }
+      return Response.json({ reply: data.choices[0]?.message?.content ?? "" }, { headers: cors })
     }
 
     return Response.json({ message: "Not found" }, { status: 404, headers: cors })
