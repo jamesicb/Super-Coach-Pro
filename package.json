@@ -5,7 +5,7 @@
     "dev": "npm run dev --prefix UI",
     "dev:server": "npm run dev --prefix server",
     "dev:all": "concurrently -n UI,Server -c cyan,magenta \"npm run dev\" \"npm run dev:server\"",
-    "build": "npm run build --prefix UI",
+    "build": "npm ci --prefix UI && npm run build --prefix UI",
     "lint": "npm run lint --prefix UI",
     "deploy": "cd server && npm run deploy"
   },
