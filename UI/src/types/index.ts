@@ -107,6 +107,19 @@ export interface CalendarEvent {
   title: string
   referenceId: string // workoutId or mealPlanId
   color?: string
+  scheduleId?: string // links back to WorkoutSchedule for deletion
+}
+
+export type FrequencyType = "once" | "recurring"
+
+export interface WorkoutSchedule {
+  id: string
+  workoutId: string
+  workoutName: string
+  frequency: FrequencyType
+  date?: string         // YYYY-MM-DD for "once"
+  daysOfWeek?: number[] // 0=Sun..6=Sat for "recurring"
+  createdAt: string
 }
 
 // ─── AI Chat ─────────────────────────────────────────────────────────────────

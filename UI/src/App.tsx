@@ -6,6 +6,7 @@ import { Toaster } from "@/components/ui/toaster"
 import { useAuthStore } from "@/store/authStore"
 import { useWorkoutStore } from "@/store/workoutStore"
 import { useDietStore } from "@/store/dietStore"
+import { useCalendarStore } from "@/store/calendarStore"
 
 const DashboardPage = lazy(() => import("@/pages/DashboardPage"))
 const WorkoutPlannerPage = lazy(() => import("@/pages/WorkoutPlannerPage"))
@@ -26,6 +27,7 @@ export default function App() {
   const { initialize, user } = useAuthStore()
   const { loadWorkouts } = useWorkoutStore()
   const { loadPlans } = useDietStore()
+  const { loadSchedules } = useCalendarStore()
 
   useEffect(() => {
     initialize()
@@ -35,8 +37,9 @@ export default function App() {
     if (user) {
       loadWorkouts()
       loadPlans()
+      loadSchedules()
     }
-  }, [user, loadWorkouts, loadPlans])
+  }, [user, loadWorkouts, loadPlans, loadSchedules])
 
   return (
     <BrowserRouter>

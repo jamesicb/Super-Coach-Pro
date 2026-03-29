@@ -3,7 +3,6 @@ import { Search, Plus } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { getExercises, type ExerciseTemplate } from "@/lib/serverComm"
 
@@ -78,7 +77,7 @@ export default function ExerciseSearchModal({ open, onClose, onSelect, alreadyAd
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[680px] max-h-[90vh] flex flex-col gap-0 p-0">
+      <DialogContent className="sm:max-w-[680px] gap-0 p-0 bg-card">
         <DialogHeader className="px-6 pt-6 pb-4">
           <DialogTitle>Add Exercise</DialogTitle>
           <DialogDescription>Search and add exercises to your workout</DialogDescription>
@@ -123,7 +122,7 @@ export default function ExerciseSearchModal({ open, onClose, onSelect, alreadyAd
         </div>
 
         {/* Column headers */}
-        <div className="px-6 pt-3 pb-2 grid grid-cols-[1fr_100px_110px_100px_auto] gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground bg-muted/30 border-b border-border">
+        <div className="px-6 pt-3 pb-2 grid grid-cols-[1fr_100px_110px_100px_auto] gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground bg-card border-b border-border">
           <span className="py-1">Exercise</span>
           <span className="py-1">Category</span>
           <span className="py-1">Muscle Group</span>
@@ -132,7 +131,7 @@ export default function ExerciseSearchModal({ open, onClose, onSelect, alreadyAd
         </div>
 
         {/* Results */}
-        <ScrollArea className="flex-1 min-h-0">
+        <div className="overflow-y-auto max-h-[50vh] bg-card">
           <div className="px-4 py-2 space-y-0.5">
             {loading ? (
               <div className="text-center py-10 text-muted-foreground">
@@ -155,7 +154,7 @@ export default function ExerciseSearchModal({ open, onClose, onSelect, alreadyAd
                 return (
                   <div
                     key={ex.id}
-                    className="grid grid-cols-[1fr_100px_110px_100px_auto] gap-2 items-center py-2.5 px-3 rounded-lg hover:bg-muted/50 transition-colors group"
+                    className="grid grid-cols-[1fr_100px_110px_100px_auto] gap-2 items-center py-2.5 px-3 rounded-lg hover:bg-muted transition-colors group"
                   >
                     {/* Exercise name + description */}
                     <div className="min-w-0">
@@ -191,7 +190,7 @@ export default function ExerciseSearchModal({ open, onClose, onSelect, alreadyAd
               })
             )}
           </div>
-        </ScrollArea>
+        </div>
       </DialogContent>
     </Dialog>
   )

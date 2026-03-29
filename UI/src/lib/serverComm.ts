@@ -1,5 +1,5 @@
 import { EXERCISE_LIBRARY, type ExerciseTemplate } from "@/mock/exercises"
-import type { Workout, MealPlan } from "@/types"
+import type { Workout, MealPlan, WorkoutSchedule } from "@/types"
 import { supabase } from "@/lib/supabase"
 
 export type { ExerciseTemplate }
@@ -136,6 +136,33 @@ export async function updateMealPlan(id: string, plan: MealPlan): Promise<MealPl
 export async function deleteMealPlan(id: string): Promise<void> {
   if (!SERVER_URL) return
   await serverFetch(`/meal-plans/${encodeURIComponent(id)}`, { method: "DELETE" })
+}
+
+// ─── Schedules ────────────────────────────────────────────────────────────────
+
+export async function getSchedules(): Promise<WorkoutSchedule[]> {
+  if (!SERVER_URL) return []
+  try {
+    const res = await serverFetch("/schedules")
+    return res.json()
+  } catch {
+    return []
+  }
+}
+
+export async function createSchedule(schedule: WorkoutSchedule): Promise<WorkoutSchedule> {
+  if (!SERVER_URL) return schedule
+  const res = await serverFetch("/schedules", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(schedule),
+  })
+  return res.json()
+}
+
+export async function deleteSchedule(id: string): Promise<void> {
+  if (!SERVER_URL) return
+  await serverFetch(`/schedules/${encodeURIComponent(id)}`, { method: "DELETE" })
 }
 
 // ─── AI Chat ──────────────────────────────────────────────────────────────────

@@ -139,10 +139,10 @@ export default function WorkoutForm({ workout }: WorkoutFormProps) {
         toast({ title: "Workout created", description: `"${name}" has been saved.` })
       }
       navigate("/workout-planner")
-    } catch {
+    } catch (e) {
       toast({
         title: "Save failed",
-        description: "Could not save to the server. Check your connection and try again.",
+        description: e instanceof Error ? e.message : "Could not save to the server. Check your connection and try again.",
         variant: "destructive",
       })
     } finally {

@@ -169,6 +169,52 @@ function mealPlanToRow(m: MealPlanShape): Omit<MealPlanRow, "created_at"> & { cr
   }
 }
 
+// ─── Workout Schedule types ───────────────────────────────────────────────────
+
+interface ScheduleRow {
+  id: string
+  workout_id: string
+  workout_name: string
+  frequency: string
+  date: string | null
+  days_of_week: number[] | null
+  created_at: string
+}
+
+interface ScheduleShape {
+  id: string
+  workoutId: string
+  workoutName: string
+  frequency: "once" | "recurring"
+  date?: string
+  daysOfWeek?: number[]
+  createdAt: string
+}
+
+function rowToSchedule(row: ScheduleRow): ScheduleShape {
+  return {
+    id: row.id,
+    workoutId: row.workout_id,
+    workoutName: row.workout_name,
+    frequency: row.frequency as "once" | "recurring",
+    date: row.date ?? undefined,
+    daysOfWeek: row.days_of_week ?? undefined,
+    createdAt: row.created_at,
+  }
+}
+
+function scheduleToRow(s: ScheduleShape): Omit<ScheduleRow, "created_at"> & { created_at?: string } {
+  return {
+    id: s.id,
+    workout_id: s.workoutId,
+    workout_name: s.workoutName,
+    frequency: s.frequency,
+    date: s.date ?? null,
+    days_of_week: s.daysOfWeek ?? null,
+    created_at: s.createdAt,
+  }
+}
+
 // ─── Supabase REST helpers ───────────────────────────────────────────────────
 
 function sbHeaders(env: Env, userToken?: string | null, extra: Record<string, string> = {}): HeadersInit {
@@ -203,13 +249,25 @@ function corsHeaders(origin: string | null): HeadersInit {
 
 export default {
   async fetch(request: Request, env: Env, _ctx: ExecutionContext): Promise<Response> {
-    const url = new URL(request.url)
     const origin = request.headers.get("Origin")
     const cors = corsHeaders(origin)
 
     if (request.method === "OPTIONS") {
       return new Response(null, { status: 204, headers: cors })
     }
+
+    try {
+      return await handleRequest(request, env, cors)
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Internal server error"
+      console.error("[worker] Unhandled error:", message)
+      return Response.json({ message }, { status: 500, headers: cors })
+    }
+  },
+} satisfies ExportedHandler<Env>
+
+async function handleRequest(request: Request, env: Env, cors: HeadersInit): Promise<Response> {
+    const url = new URL(request.url)
 
     // Extract the user's JWT from the incoming request (forwarded from the UI)
     const authHeader = request.headers.get("Authorization")
@@ -395,6 +453,39 @@ Always be encouraging and science-based in your advice.`,
       return Response.json({ reply: data.choices[0]?.message?.content ?? "" }, { headers: cors })
     }
 
+    // ── /schedules ────────────────────────────────────────────────────────────
+    const schedBase = `${env.SUPABASE_URL}/rest/v1/workout_schedules`
+
+    // GET /schedules
+    if (url.pathname === "/schedules" && request.method === "GET") {
+      const res = await sbFetch(`${schedBase}?select=*&order=created_at.desc`, { headers: sbH() })
+      const rows: ScheduleRow[] = await res.json()
+      return Response.json(rows.map(rowToSchedule), { headers: cors })
+    }
+
+    // POST /schedules
+    if (url.pathname === "/schedules" && request.method === "POST") {
+      const body = await request.json() as ScheduleShape
+      const row = scheduleToRow(body)
+      const res = await sbFetch(schedBase, {
+        method: "POST",
+        headers: sbH({ Prefer: "return=representation" }),
+        body: JSON.stringify(row),
+      })
+      const rows: ScheduleRow[] = await res.json()
+      return Response.json(rowToSchedule(rows[0]), { status: 201, headers: cors })
+    }
+
+    // DELETE /schedules/:id
+    const schedIdMatch = url.pathname.match(/^\/schedules\/([^/]+)$/)
+    if (schedIdMatch) {
+      const id = schedIdMatch[1]
+      const byId = `${schedBase}?id=eq.${encodeURIComponent(id)}`
+      if (request.method === "DELETE") {
+        await sbFetch(byId, { method: "DELETE", headers: sbH() })
+        return new Response(null, { status: 204, headers: cors })
+      }
+    }
+
     return Response.json({ message: "Not found" }, { status: 404, headers: cors })
-  },
-} satisfies ExportedHandler<Env>
+}
