@@ -4,7 +4,7 @@ import { supabase } from "@/lib/supabase"
 
 export type { ExerciseTemplate }
 
-const SERVER_URL = import.meta.env.VITE_SERVER_URL ?? "https://super-coach-pro-server.super-coach-pro.workers.dev"
+const SERVER_URL = (import.meta.env.VITE_SERVER_URL ?? "https://super-coach-pro-server.super-coach-pro.workers.dev").replace(/\/$/, "")
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
