@@ -74,7 +74,6 @@ function EventPill({
       style={{
         backgroundColor: event.color ? `${event.color}22` : "#3b82f622",
         color: event.color ?? "#3b82f6",
-        ringColor: event.color ?? "#3b82f6",
       }}
     >
       {event.title}
